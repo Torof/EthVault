@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "solady/src/utils/FixedPointMathLib.sol";
 
 pragma solidity 0.8.26;
 
@@ -93,15 +94,15 @@ contract Vault is Ownable(msg.sender) {
     event EpochStarted(uint256 indexed epochNumber);
 
     constructor(address _ledgityMultisig) {
-    // Initialize Epoch 0 as a placeholder that should never be modified
-    epochs.push(Epoch(0, 0, 0, 0, 0, 0, 0));
-    
-    // Initialize Epoch 1 as the first active epoch
-    epochs.push(Epoch(0, 0, 0, 0, 0, 0, 0));
-    
-    ledgityMultisig = _ledgityMultisig;
-    currentEpochStatus = EpochStatus.Open;
-}
+        // Initialize Epoch 0 as a placeholder that should never be modified
+        epochs.push(Epoch(0, 0, 0, 0, 0, 0, 0));
+        
+        // Initialize Epoch 1 as the first active epoch
+        epochs.push(Epoch(0, 0, 0, 0, 0, 0, 0));
+        
+        ledgityMultisig = _ledgityMultisig;
+        currentEpochStatus = EpochStatus.Open;
+    }
 
     function enter() public payable {
         if (locked) revert IsLocked("ENTER: cannot enter when locked");
@@ -153,7 +154,7 @@ contract Vault is Ownable(msg.sender) {
 
         uint256 currentEpoch = epochs.length - 1;
         // Calculate shares to exit based on the proportion of stake being withdrawn
-        uint256 sharesToExit = (currentStake.shares * _amount) / currentStake.stake;
+        uint256 sharesToExit = FixedPointMathLib.mulDiv(currentStake.shares, _amount, currentStake.stake);
 
         // Claim rewards before modifying the stake
         _claimRewards(msg.sender);
@@ -203,8 +204,8 @@ contract Vault is Ownable(msg.sender) {
         if (currentStake.epochOut == 0 || currentStake.epochOut > currentStake.epochIn) {
             for (uint j = currentStake.epochIn; j < epochs.length; j++) {
                 uint256 rewardPerShare = epochs[j].accumulatedRewardPerShare;
-                pending += (currentStake.shares * rewardPerShare / 1e18) - currentStake.rewardDebt;
-                currentStake.rewardDebt = currentStake.shares * rewardPerShare / 1e18;
+                pending += FixedPointMathLib.mulDiv(currentStake.shares, rewardPerShare, 1e18) - currentStake.rewardDebt;
+                currentStake.rewardDebt = FixedPointMathLib.mulDiv(currentStake.shares, rewardPerShare, 1e18);
             }
         }
 
@@ -228,7 +229,7 @@ contract Vault is Ownable(msg.sender) {
     function calculateShares(uint256 amount, uint256 totalValue) internal pure returns (uint256) {
         if (totalValue == 0) return amount;
         // Calculate shares based on the proportion of new amount to total value
-        return amount * 1e18 / totalValue;
+        return FixedPointMathLib.mulDiv(amount, 1e18, totalValue);
     }
 
     function transitionToNextEpoch() external onlyOwner {
@@ -255,12 +256,12 @@ contract Vault is Ownable(msg.sender) {
         if (currentEpoch.rewardPercentage != 0) revert NotWithdrawable();
 
         // Calculate and set the reward percentage
-        currentEpoch.rewardPercentage = uint48(msg.value * 10_000 / currentEpoch.totalValueLocked); // 100 is 1%, preserves 4 decimals
+        currentEpoch.rewardPercentage = uint48(FixedPointMathLib.mulDiv(msg.value, 10_000, currentEpoch.totalValueLocked));
         currentEpoch.totalRewards = msg.value;
         
         // Update the accumulated reward per share
         if (currentEpoch.totalShares > 0) {
-            currentEpoch.accumulatedRewardPerShare += (msg.value * 1e18) / currentEpoch.totalShares;
+            currentEpoch.accumulatedRewardPerShare += FixedPointMathLib.mulDiv(msg.value, 1e18, currentEpoch.totalShares);
         }
         
         claimableRewards = true;
