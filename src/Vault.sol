@@ -1,311 +1,236 @@
 // SPDX-License-Identifier: MIT
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "solady/src/utils/FixedPointMathLib.sol";
+import "../lib/solady/src/utils/FixedPointMathLib.sol";
 
 pragma solidity 0.8.26;
+
 
 /**
  * @title Ledgity Vault Contract
  * @author torof
- * @notice This contract implements a RWA staking and reward distribution system operating in epochs.
- *         Users can provide funds that will be used for real-world financial operations, and in return,
- *         they will receive rewards proportionally to their stake.
+ * @notice This contract implements a ETH staking and reward distribution system operating in epochs.
+ *         Users can provide funds that will be used for derivatives (short put and call options) operations, and in return,
+ *         they will receive yield proportionally to their stake.
  * @dev The contract allows users to stake funds, which are locked for a period of time (an epoch).
  *      The contract has a lifecycle that includes opening, running, and terminating epochs, distributing
  *      rewards, and claiming rewards.
  *      Adding and withdrawing funds is possible only when the epoch status is "Open".
  *      Claiming rewards is always possible EXCEPT during the timeframe between when an epoch
  *      starts running and when rewards are allocated for that epoch.
- *
- * Key structures and their importance:
- * 
- * The Epoch structure represents a period of staking and reward distribution.
- * It's crucial for managing the lifecycle of funds and rewards, allowing the system
- * to operate in distinct time-bound phases.
- *
- * UserStake tracks individual user stakes across epochs. This structure
- * allows for efficient reward calculations and stake management, ensuring
- * that users' contributions are accurately recorded and rewarded. Stakes can spread across multiple epochs.
- *
- * UserAction records all user activities, including deposits, withdrawals, and claims.
- * This provides a detailed history for auditing and transparency purposes,
- * allowing for a complete view of user interactions with the contract.
- *
- * These structures work together to create a flexible and transparent staking system
- * that can handle staking over multiple epochs, varying reward rates, and detailed user activity tracking.
- * The design allows for precise management of funds and rewards while maintaining
- * a clear record of all operations.
  */
 
 contract Vault is Ownable(msg.sender) {
     struct Epoch {
-        uint48 startedAt;
-        uint48 endedAt;
-        uint48 rewardPercentage;
         uint256 totalValueLocked;
-        uint256 totalRewards;
-        uint256 totalShares;
-        uint256 accumulatedRewardPerShare;
+        uint256 totalEpochRewards;
     }
 
     struct UserStake {
-        uint256 epochIn;
-        uint256 epochOut; //if 0, the stake is still active
-        uint256 stake;
-        uint256 shares;
-        uint256 rewardDebt;
-    }
-
-    struct UserAction {
-        uint256 epochNumber;
-        ActionType actionType;
         uint256 amount;
-        uint256 shares;
-        uint256 timestamp;
+        uint256 lastEpochClaimedAt;
     }
 
-    enum ActionType { Deposit, Withdraw, Claim }
-    enum EpochStatus { Open, Running, Terminated }
+    enum EpochStatus {
+        Open,
+        Running
+    }
 
     EpochStatus public currentEpochStatus;
-    address immutable ledgityMultisig;
-    bool public locked;
+    address public fundWallet;
     bool public claimableRewards;
     Epoch[] public epochs;
-    mapping(address => UserStake[]) public userStakes;
-    mapping(address => UserAction[]) public userActions;
-    mapping(address => uint256) public userRewardShares;
-    uint256 public totalRewardShares;
+    uint256 public currentEpochId;
+    mapping(address => UserStake) public userStakes;
+    uint256 public mininmumStake;
 
-    error IsLocked(string);
-    error IsUnlocked(string);
+    error WrongPhase(string);
     error NoRewardToClaim();
     error UnClaimableRewards();
     error TransferFailed();
     error NoStakeToExit();
     error NotWithdrawable();
+    error InsufficientStake(uint256 provided, uint256 required);
+    error AmountMustBeGreaterThanZero();
+    error InsufficientBalance(uint256 requested, uint256 available);
+    error NoActiveStake();
+    error InsufficientFundsReturned(uint256 provided, uint256 required);
+    error NoRewardsToAllocate();
+    error RewardsAlreadyAllocated();
 
-    event Entered(address indexed user, uint256 amount, uint256 shares);
-    event Exited(address indexed user, uint256 amount, uint256 shares);
-    event RewardsClaimed(address indexed user, uint256 amount);
-    event EpochClosed(uint256 indexed epochNumber);
-    event RewardsOpened(uint256 indexed epochNumber, uint256 rewardAmount);
-    event EpochStarted(uint256 indexed epochNumber);
+    event EpochOpened(uint256 indexed epochNumber, uint256 timestamp);
+    event EpochRunning(uint256 indexed epochNumber, uint256 timestamp, uint256 totalValueLocked);
+    event EpochTerminated(uint256 indexed epochNumber, uint256 timestamp);
+    event RewardsAllocated(uint256 indexed epochNumber, uint256 rewardAmount);
+    event UserDeposit(address indexed user, uint256 amount, uint256 epochNumber);
+    event UserWithdraw(address indexed user, uint256 amount, uint256 epochNumber);
+    event UserRewardClaim(address indexed user, uint256 amount, uint256 epochNumber);
 
-    constructor(address _ledgityMultisig) {
+    constructor(address _fundWallet) {
         // Initialize Epoch 0 as a placeholder that should never be modified
-        epochs.push(Epoch(0, 0, 0, 0, 0, 0, 0));
-        
+        epochs.push(Epoch(0, 0));
+
         // Initialize Epoch 1 as the first active epoch
-        epochs.push(Epoch(0, 0, 0, 0, 0, 0, 0));
-        
-        ledgityMultisig = _ledgityMultisig;
+        epochs.push(Epoch(0, 0));
+
+        fundWallet = _fundWallet;
         currentEpochStatus = EpochStatus.Open;
+        currentEpochId = 1; // Start with epoch 1
+
+        mininmumStake = 5 ether / 100;
+
+        emit EpochOpened(currentEpochId, block.timestamp);
     }
 
     function enter() public payable {
-        if (locked) revert IsLocked("ENTER: cannot enter when locked");
-        uint256 currentEpoch = epochs.length - 1;
+        if (currentEpochStatus != EpochStatus.Open) revert WrongPhase("ENTER: only allowed during open phase");
+        if (msg.value < mininmumStake) revert InsufficientStake(msg.value, mininmumStake);
 
-        uint256 newStake = msg.value;
-        uint256 newShares = calculateShares(newStake, epochs[currentEpoch].totalValueLocked);
+        UserStake storage userStake = userStakes[msg.sender];
 
-        // Check if user already has an active stake
-        if (userStakes[msg.sender].length > 0 && userStakes[msg.sender][userStakes[msg.sender].length - 1].epochOut == 0) {
-            UserStake storage existingStake = userStakes[msg.sender][userStakes[msg.sender].length - 1];
-            
-            // Claim pending rewards before modifying the stake
+        if (hasClaimableRewards(msg.sender)) {
+            // Claim any pending rewards before adding to the stake
             _claimRewards(msg.sender);
-            
-            // Add new stake to existing stake
-            existingStake.stake += newStake;
-            existingStake.shares += newShares;
         } else {
-            // Create a new stake for the user
-            userStakes[msg.sender].push(UserStake(currentEpoch, 0, newStake, newShares, 0));
+            // Initialize lastEpochClaimedAt for new stakes
+            userStake.lastEpochClaimedAt = currentEpochId - 1;
         }
 
-        // Update global and epoch-specific totals
-        userRewardShares[msg.sender] += newShares;
-        totalRewardShares += newShares;
-        epochs[currentEpoch].totalValueLocked += newStake;
-        epochs[currentEpoch].totalShares += newShares;
+        userStake.amount += msg.value;
+        epochs[currentEpochId].totalValueLocked += msg.value;
 
-        // Record the user action
-        userActions[msg.sender].push(UserAction({
-            epochNumber: currentEpoch,
-            actionType: ActionType.Deposit,
-            amount: newStake,
-            shares: newShares,
-            timestamp: block.timestamp
-        }));
-
-        emit Entered(msg.sender, newStake, newShares);
+        emit UserDeposit(msg.sender, msg.value, currentEpochId);
     }
 
     function exit(uint256 _amount) public {
-        if (locked) revert IsLocked("EXIT: cannot exit when locked");
+        if (currentEpochStatus != EpochStatus.Open) revert WrongPhase("EXIT: only allowed during open phase");
+        UserStake storage userStake = userStakes[msg.sender];
+        if (userStake.amount < _amount) revert InsufficientBalance(_amount, userStake.amount);
+        if(_amount == 0) revert AmountMustBeGreaterThanZero();
 
-        UserStake storage currentStake = userStakes[msg.sender][userStakes[msg.sender].length - 1];
+        // Claim rewards before exiting
+        if(hasClaimableRewards(msg.sender)) _claimRewards(msg.sender);
 
-        if (currentStake.epochOut != 0) revert NoStakeToExit();
-        if (_amount > currentStake.stake) revert("EXIT: insufficient balance");
+        userStake.amount -= _amount;
+        epochs[currentEpochId].totalValueLocked -= _amount;
 
-        uint256 currentEpoch = epochs.length - 1;
-        // Calculate shares to exit based on the proportion of stake being withdrawn
-        uint256 sharesToExit = FixedPointMathLib.mulDiv(currentStake.shares, _amount, currentStake.stake);
-
-        // Claim rewards before modifying the stake
-        _claimRewards(msg.sender);
-
-        // Update the current stake
-        currentStake.stake -= _amount;
-        currentStake.shares -= sharesToExit;
-
-        // If it's a full exit, mark the stake as closed
-        if (currentStake.stake == 0) {
-            currentStake.epochOut = currentEpoch;
-        }
-
-        // Update global and epoch-specific totals
-        epochs[currentEpoch].totalValueLocked -= _amount;
-        epochs[currentEpoch].totalShares -= sharesToExit;
-        userRewardShares[msg.sender] -= sharesToExit;
-        totalRewardShares -= sharesToExit;
-
-        // Record the user action
-        userActions[msg.sender].push(UserAction({
-            epochNumber: currentEpoch,
-            actionType: ActionType.Withdraw,
-            amount: _amount,
-            shares: sharesToExit,
-            timestamp: block.timestamp
-        }));
-
-        // Transfer the withdrawn amount to the user
         (bool success,) = msg.sender.call{value: _amount}("");
         if (!success) revert TransferFailed();
 
-        emit Exited(msg.sender, _amount, sharesToExit);
+        emit UserWithdraw(msg.sender, _amount, currentEpochId);
     }
 
     function claimRewards() public {
+        if (!claimableRewards) revert UnClaimableRewards();
+        if (!hasClaimableRewards(msg.sender)) revert NoRewardToClaim();
         _claimRewards(msg.sender);
     }
 
+    function hasClaimableRewards(address _user) public view returns (bool) {
+        if(userStakes[_user].amount == 0) return false;
+        if(currentEpochId == 1 && !claimableRewards) return false;
+        if(currentEpochStatus == EpochStatus.Open && userStakes[_user].lastEpochClaimedAt == currentEpochId - 1) return false;
+        if(userStakes[_user].lastEpochClaimedAt == currentEpochId) return false;
+        else return true;
+    }
+
     function _claimRewards(address _user) internal {
-        if (!claimableRewards) revert UnClaimableRewards();
 
-        uint256 pending = 0;
-        UserStake storage currentStake = userStakes[_user][userStakes[_user].length - 1];
+        UserStake storage userStake = userStakes[_user];
 
-        // Check if the stake is active or has ended after it began
-        if (currentStake.epochOut == 0 || currentStake.epochOut > currentStake.epochIn) {
-            for (uint j = currentStake.epochIn; j < epochs.length; j++) {
-                uint256 rewardPerShare = epochs[j].accumulatedRewardPerShare;
-                pending += FixedPointMathLib.mulDiv(currentStake.shares, rewardPerShare, 1e18) - currentStake.rewardDebt;
-                currentStake.rewardDebt = FixedPointMathLib.mulDiv(currentStake.shares, rewardPerShare, 1e18);
-            }
+        uint256 totalRewards;
+        uint256 startEpoch = userStake.lastEpochClaimedAt + 1;
+        uint256 endEpoch;
+
+        // Update the lastEpochClaimedAt for the user
+        // If the current epoch is in "open" phase, the user will be able to claim rewards up to the previous epoch only
+        if(currentEpochStatus == EpochStatus.Open) {
+            endEpoch = currentEpochId - 1;
+            userStake.lastEpochClaimedAt = endEpoch;
+        } else {
+            endEpoch = currentEpochId;
+            userStake.lastEpochClaimedAt = endEpoch; 
         }
 
-        if (pending == 0) revert NoRewardToClaim();
+        //calculate share of user for each epoch
+        for (uint256 i = startEpoch; i <= endEpoch; i++) {
+            Epoch storage epoch = epochs[i];
+            uint256 epochReward = FixedPointMathLib.mulDiv(userStake.amount, epoch.totalEpochRewards, epoch.totalValueLocked);
+            totalRewards += epochReward;
+        }
 
-        // Record the claim action
-        userActions[_user].push(UserAction({
-            epochNumber: epochs.length - 1,
-            actionType: ActionType.Claim,
-            amount: pending,
-            shares: 0,
-            timestamp: block.timestamp
-        }));
-
-        (bool success,) = _user.call{value: pending}("");
+        (bool success,) = msg.sender.call{value: totalRewards}("");
         if (!success) revert TransferFailed();
 
-        emit RewardsClaimed(_user, pending);
+        emit UserRewardClaim(msg.sender, totalRewards, currentEpochId);
     }
 
-    function calculateShares(uint256 amount, uint256 totalValue) internal pure returns (uint256) {
-        if (totalValue == 0) return amount;
-        // Calculate shares based on the proportion of new amount to total value
-        return FixedPointMathLib.mulDiv(amount, 1e18, totalValue);
-    }
+    function terminateCurrentAndOpenNextEpoch() external payable onlyOwner {
+        if (currentEpochStatus != EpochStatus.Running) revert WrongPhase("END EPOCH: can only end a running epoch");
+        if(!claimableRewards) revert WrongPhase("END EPOCH: rewards must be allocated before ending the epoch");
+        if (msg.value < epochs[currentEpochId].totalValueLocked) 
+            revert InsufficientFundsReturned(msg.value, epochs[currentEpochId].totalValueLocked);
 
-    function transitionToNextEpoch() external onlyOwner {
-        if (locked) revert IsLocked("END EPOCH: cannot be ended while locked");
-        uint256 currentEpochIndex = epochs.length - 1;
-        Epoch storage currentEpoch = epochs[currentEpochIndex];
+        Epoch storage currentEpoch = epochs[currentEpochId];
 
-        currentEpoch.endedAt = uint48(block.timestamp);
-        
         uint256 fundsToTransfer = currentEpoch.totalValueLocked;
-        uint256 sharesToTransfer = currentEpoch.totalShares;
-        
-        // Start a new epoch with the current TVL and shares
-        epochs.push(Epoch(0, 0, 0, fundsToTransfer, 0, sharesToTransfer, 0));
-        locked = false;
 
-        emit EpochClosed(currentEpochIndex);
+        emit EpochTerminated(currentEpochId, block.timestamp);
+
+        // Increment the currentEpochId
+        currentEpochId++;
+
+        // Start a new epoch with the current TVL
+        epochs.push(Epoch(fundsToTransfer, 0));
+        currentEpochStatus = EpochStatus.Open;
+
+        emit EpochOpened(currentEpochId, block.timestamp);
     }
 
-    function openRewards() external payable onlyOwner {
-        if (!locked) revert IsUnlocked("OPEN REWARDS: must be locked");
-        uint256 currentEpochIndex = epochs.length - 1;
-        Epoch storage currentEpoch = epochs[currentEpochIndex];
-        if (currentEpoch.rewardPercentage != 0) revert NotWithdrawable();
+    function allocateRewards() external payable onlyOwner {
+        if (currentEpochStatus != EpochStatus.Running) revert WrongPhase("ALLOCATE REWARDS: must be in running phase");
+        if (msg.value == 0) revert NoRewardsToAllocate();
 
-        // Calculate and set the reward percentage
-        currentEpoch.rewardPercentage = uint48(FixedPointMathLib.mulDiv(msg.value, 10_000, currentEpoch.totalValueLocked));
-        currentEpoch.totalRewards = msg.value;
-        
-        // Update the accumulated reward per share
-        if (currentEpoch.totalShares > 0) {
-            currentEpoch.accumulatedRewardPerShare += FixedPointMathLib.mulDiv(msg.value, 1e18, currentEpoch.totalShares);
-        }
-        
+        Epoch storage currentEpoch = epochs[currentEpochId];
+        if (currentEpoch.totalEpochRewards != 0) revert RewardsAlreadyAllocated();
+
+        currentEpoch.totalEpochRewards = msg.value;
+
         claimableRewards = true;
 
-        emit RewardsOpened(currentEpochIndex, msg.value);
+        emit RewardsAllocated(currentEpochId, msg.value);
     }
 
-    function lockFundsWithdrawAndStartEpoch() external onlyOwner {
-        locked = true;
+    function lockFundsAndRunCurrentEpoch() external onlyOwner {
+        if (currentEpochStatus != EpochStatus.Open) {
+            revert WrongPhase("RUN EPOCH: can only start running from open phase");
+        }
+
+        currentEpochStatus = EpochStatus.Running;
         claimableRewards = false;
-        uint256 currentEpochIndex = epochs.length - 1;
-        epochs[currentEpochIndex].startedAt = uint48(block.timestamp);
-        
+
         // Transfer the total value locked to the multisig wallet
-        uint256 amountToTransfer = epochs[currentEpochIndex].totalValueLocked;
-        (bool success,) = ledgityMultisig.call{value: amountToTransfer}("");
+        uint256 amountToTransfer = epochs[currentEpochId].totalValueLocked;
+        (bool success,) = address(fundWallet).call{value: amountToTransfer}("");
         if (!success) revert TransferFailed();
 
-        emit EpochStarted(currentEpochIndex);
+        emit EpochRunning(currentEpochId, block.timestamp, amountToTransfer);
     }
 
-    function getUserStakes(address _user) external view returns (UserStake[] memory) {
-        return userStakes[_user];
+    function setFundWallet(address _fundWallet) external onlyOwner {
+        fundWallet = _fundWallet;
     }
 
-    function getUserActions(address _user) external view returns (UserAction[] memory) {
-        return userActions[_user];
+    function setMinimumStake(uint256 _mininmumStake) external onlyOwner {
+        mininmumStake = _mininmumStake;
     }
 
     function getCurrentEpoch() external view returns (Epoch memory) {
-        return epochs[epochs.length - 1];
+        return epochs[currentEpochId];
     }
 
     function getEpochCount() external view returns (uint256) {
         return epochs.length;
     }
 
-    function getLastClaimEpoch(address _user) public view returns (uint256) {
-        UserAction[] memory actions = userActions[_user];
-        for (uint i = actions.length; i > 0; i--) {
-            if (actions[i-1].actionType == ActionType.Claim) {
-                return actions[i-1].epochNumber;
-            }
-        }
-        return 0; // Return 0 if no claims found
-    }
 }
