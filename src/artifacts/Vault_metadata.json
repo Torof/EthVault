@@ -1,0 +1,934 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_fundWallet",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "AmountMustBeGreaterThanZero",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "ContractLocked",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "requested",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "available",
+						"type": "uint256"
+					}
+				],
+				"name": "InsufficientBalance",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "provided",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "required",
+						"type": "uint256"
+					}
+				],
+				"name": "InsufficientFundsReturned",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "provided",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "required",
+						"type": "uint256"
+					}
+				],
+				"name": "InsufficientStake",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "NoActiveStake",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "NoRewardToClaim",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "NoRewardsToAllocate",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "NoStakeToExit",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "NotWithdrawable",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "OwnableInvalidOwner",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "OwnableUnauthorizedAccount",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "ReentrancyGuardReentrantCall",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "RewardsAlreadyAllocated",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "TransferFailed",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "UnClaimableRewards",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"name": "WrongPhase",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "EpochOpened",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "totalValueLocked",
+						"type": "uint256"
+					}
+				],
+				"name": "EpochRunning",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "EpochTerminated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "oldFundWallet",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "newFundWallet",
+						"type": "address"
+					}
+				],
+				"name": "FundWalletChanged",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "epochId",
+						"type": "uint256"
+					}
+				],
+				"name": "FundsTransferredToFundWallet",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "locked",
+						"type": "bool"
+					}
+				],
+				"name": "LockingContract",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldMinimumStake",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newMinimumStake",
+						"type": "uint256"
+					}
+				],
+				"name": "MinimumStakeChanged",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "previousOwner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "rewardAmount",
+						"type": "uint256"
+					}
+				],
+				"name": "RewardsAllocated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "claimable",
+						"type": "bool"
+					}
+				],
+				"name": "RewardsClaimabilityChanged",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					}
+				],
+				"name": "UserDeposit",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					}
+				],
+				"name": "UserRewardClaim",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "epochNumber",
+						"type": "uint256"
+					}
+				],
+				"name": "UserWithdraw",
+				"type": "event"
+			},
+			{
+				"inputs": [],
+				"name": "allocateRewards",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "claimRewards",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "claimableRewards",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "currentEpochId",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "currentEpochStatus",
+				"outputs": [
+					{
+						"internalType": "enum Vault.EpochStatus",
+						"name": "",
+						"type": "uint8"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "enter",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "epochs",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "totalValueLocked",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalEpochRewards",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amount",
+						"type": "uint256"
+					}
+				],
+				"name": "exit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "fundWallet",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getCurrentEpoch",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "totalValueLocked",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint256",
+								"name": "totalEpochRewards",
+								"type": "uint256"
+							}
+						],
+						"internalType": "struct Vault.Epoch",
+						"name": "",
+						"type": "tuple"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getEpochCount",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					}
+				],
+				"name": "hasClaimableRewards",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "lockFundsAndRunCurrentEpoch",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bool",
+						"name": "_locked",
+						"type": "bool"
+					}
+				],
+				"name": "lockOrUnlockContract",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "mininmumStake",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "renounceOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_fundWallet",
+						"type": "address"
+					}
+				],
+				"name": "setFundWallet",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_mininmumStake",
+						"type": "uint256"
+					}
+				],
+				"name": "setMinimumStake",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "terminateCurrentAndOpenNextEpoch",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "userStakes",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "lastEpochClaimedAt",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"author": "torof",
+			"custom:warning": "claiming entails the use of a loop, if too many epochs to claim, it may fail                 the gas cost of the call and the success or failure should be estimated before calling                 a security function is present to break down claiming in chunks.",
+			"details": "The contract allows users to stake funds, which are locked for a period of time (an epoch).      The contract has a lifecycle that includes opening, running, and terminating epochs, distributing      rewards, and claiming rewards.      Adding and withdrawing funds is possible only when the epoch status is \"Open\".      Claiming rewards is always possible EXCEPT during the timeframe between when an epoch      starts running and when rewards are allocated for that epoch.",
+			"errors": {
+				"OwnableInvalidOwner(address)": [
+					{
+						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
+					}
+				],
+				"OwnableUnauthorizedAccount(address)": [
+					{
+						"details": "The caller account is not authorized to perform an operation."
+					}
+				],
+				"ReentrancyGuardReentrantCall()": [
+					{
+						"details": "Unauthorized reentrant call."
+					}
+				]
+			},
+			"kind": "dev",
+			"methods": {
+				"allocateRewards()": {
+					"details": "This function can only be called by the contract owner when the epoch is Running"
+				},
+				"claimRewards()": {
+					"details": "This function can be called at any time, except when rewards are not claimable"
+				},
+				"constructor": {
+					"params": {
+						"_fundWallet": "The address where funds will be transferred during epoch execution"
+					}
+				},
+				"enter()": {
+					"details": "This function can only be called when the epoch status is Open"
+				},
+				"exit(uint256)": {
+					"details": "This function can only be called when the epoch status is Open",
+					"params": {
+						"_amount": "The amount of ETH to unstake"
+					}
+				},
+				"getCurrentEpoch()": {
+					"returns": {
+						"_0": "Epoch struct containing the current epoch's data"
+					}
+				},
+				"getEpochCount()": {
+					"returns": {
+						"_0": "uint256 representing the total number of epochs"
+					}
+				},
+				"hasClaimableRewards(address)": {
+					"params": {
+						"_user": "The address of the user to check"
+					},
+					"returns": {
+						"_0": "bool indicating whether the user has claimable rewards"
+					}
+				},
+				"lockFundsAndRunCurrentEpoch()": {
+					"details": "This function can only be called by the contract owner when the epoch is Open"
+				},
+				"owner()": {
+					"details": "Returns the address of the current owner."
+				},
+				"renounceOwnership()": {
+					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
+				},
+				"setFundWallet(address)": {
+					"details": "This function can only be called by the contract owner",
+					"params": {
+						"_fundWallet": "The new fund wallet address"
+					}
+				},
+				"setMinimumStake(uint256)": {
+					"details": "This function can only be called by the contract owner",
+					"params": {
+						"_mininmumStake": "The new minimum stake amount"
+					}
+				},
+				"terminateCurrentAndOpenNextEpoch()": {
+					"details": "This function can only be called by the contract owner"
+				},
+				"transferOwnership(address)": {
+					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				}
+			},
+			"title": "Ledgity ETH Vault Contract",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"allocateRewards()": {
+					"notice": "Allocates rewards for the current epoch"
+				},
+				"claimRewards()": {
+					"notice": "Allows a user to claim their rewards"
+				},
+				"claimableRewards()": {
+					"notice": "Indicates if rewards are currently claimable"
+				},
+				"constructor": {
+					"notice": "Initializes the Vault contract"
+				},
+				"currentEpochId()": {
+					"notice": "The ID of the current epoch"
+				},
+				"currentEpochStatus()": {
+					"notice": "The current status of the epoch"
+				},
+				"enter()": {
+					"notice": "Allows a user to enter the vault by staking ETH"
+				},
+				"epochs(uint256)": {
+					"notice": "Array of all epochs"
+				},
+				"exit(uint256)": {
+					"notice": "Allows a user to exit the vault by unstaking ETH"
+				},
+				"fundWallet()": {
+					"notice": "The address where funds are transferred during epoch execution"
+				},
+				"getCurrentEpoch()": {
+					"notice": "Retrieves the current epoch data"
+				},
+				"getEpochCount()": {
+					"notice": "Retrieves the total number of epochs"
+				},
+				"hasClaimableRewards(address)": {
+					"notice": "Checks if a user has claimable rewards"
+				},
+				"lockFundsAndRunCurrentEpoch()": {
+					"notice": "Locks funds and starts running the current epoch"
+				},
+				"mininmumStake()": {
+					"notice": "The minimum stake amount required"
+				},
+				"setFundWallet(address)": {
+					"notice": "Sets a new fund wallet address"
+				},
+				"setMinimumStake(uint256)": {
+					"notice": "Sets a new minimum stake amount"
+				},
+				"terminateCurrentAndOpenNextEpoch()": {
+					"notice": "Terminates the current epoch and opens the next one"
+				},
+				"userStakes(address)": {
+					"notice": "Mapping of user addresses to their stakes"
+				}
+			},
+			"notice": "This contract implements a ETH staking and reward distribution system operating in epochs.         Users can provide funds that will be used for derivatives (short put and call options) operations, and in return,         they will receive yield proportionally to their stake.",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/Vault.sol": "Vault"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": [
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/solmate/lib/ds-test/src/",
+			":erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+			":forge-std/=lib/forge-std/src/",
+			":openzeppelin-contracts/=lib/openzeppelin-contracts/",
+			":solady/=lib/solady/src/",
+			":solmate/=lib/solmate/src/",
+			"lib/forge-std:ds-test/=lib/forge-std/lib/ds-test/src/",
+			"lib/openzeppelin-contracts:ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/",
+			"lib/openzeppelin-contracts:erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+			"lib/openzeppelin-contracts:forge-std/=lib/openzeppelin-contracts/lib/forge-std/src/",
+			"lib/openzeppelin-contracts:openzeppelin/=lib/openzeppelin-contracts/contracts/",
+			"lib/solmate:ds-test/=lib/solmate/lib/ds-test/src/"
+		]
+	},
+	"sources": {
+		"lib/openzeppelin-contracts/contracts/access/Ownable.sol": {
+			"keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8ed324d3920bb545059d66ab97d43e43ee85fd3bd52e03e401f020afb0b120f6",
+				"dweb:/ipfs/QmfEckWLmZkDDcoWrkEvMWhms66xwTLff9DDhegYpvHo1a"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/Context.sol": {
+			"keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6a708e8a5bdb1011c2c381c9a5cfd8a9a956d7d0a9dc1bd8bcdaf52f76ef2f12",
+				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol": {
+			"keccak256": "0xf980daa263b661ab8ddee7d4fd833c7da7e7995e2c359ff1f17e67e4112f2236",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://7448ab095d6940130bcf76ba47a2eab14148c83119523b93dd89f6d84edd6c02",
+				"dweb:/ipfs/QmawrZ4voKQjH3oomXT3Kuheb3Mnmo2VvVpxg8Ne5UJUrd"
+			]
+		},
+		"lib/solady/src/utils/FixedPointMathLib.sol": {
+			"keccak256": "0x3b2d21667478a864bf8b7c691986048c05f4c84712139d7b5175b6017874d3f0",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://31ba5fd2e10d53a655b1f1af58ec40e831b84d1731dc6fefacf8097be0de8919",
+				"dweb:/ipfs/QmQucazZQwU8Qv26wYRXy4ME1XEqZHCF5Gbc9VcgdU4d5S"
+			]
+		},
+		"src/Vault.sol": {
+			"keccak256": "0xdc23d2adb2afb03b612af5562075444e5402e8acf65b5099e22b12624b5421a5",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://494717f9bca967ff486a282101ace8cfb487ad8a955e06de40ce150e8aff7f02",
+				"dweb:/ipfs/QmTJ3qxeznNMm3DYjx2YwRftqNkEFi4S1PUR3s2BKmGLC1"
+			]
+		}
+	},
+	"version": 1
+}

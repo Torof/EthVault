@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.26;
 
-import "../src/Vault.sol";
+import "../src/EthVault.sol";
 
 /**
 * @title FailedTransfer
@@ -14,7 +14,7 @@ contract FailedTransfer {
     event Received(address sender, uint amount);
     event Fallback(address sender, uint amount, bytes data);
 
-    Vault public vault = Vault(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f);
+    EthVault public vault = EthVault(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f);
 
     receive() external payable {
         emit Received(msg.sender, msg.value);
