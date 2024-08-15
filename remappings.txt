@@ -1,4 +1,5 @@
 @openzeppelin/=lib/openzeppelin-contracts/
+@openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 solady/=lib/solady/src/
 ds-test/=lib/solmate/lib/ds-test/src/
 erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/

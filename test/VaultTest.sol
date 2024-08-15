@@ -4,10 +4,13 @@ pragma solidity ^0.8.26;
 import "forge-std/Test.sol";
 import "../src/EthVault.sol";
 import "./FailedTransfer.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract VaultTest is Test {
     EthVault public vault;
+    EthVault public implementation;
+    ERC1967Proxy public proxy;
     FailedTransfer public failedTransfer;
     address public owner;
     address public fundWallet;
@@ -38,9 +41,22 @@ contract VaultTest is Test {
         vm.deal(user1, 1000 ether);
         vm.deal(user2, 1000 ether);
         vm.deal(failedT, 100 ether);
-        vault = new EthVault(fundWallet);
+
+        // Deploy implementation
+        implementation = new EthVault();
+
+        // Encode initialization data
+        bytes memory initData = abi.encodeWithSelector(EthVault.initialize.selector, fundWallet);
+
+        // Deploy ERC1967Proxy
+        proxy = new ERC1967Proxy(address(implementation), initData);
+
+        // Create a contract instance of the proxy
+        vault = EthVault(address(proxy));
+
         failedTransfer = new FailedTransfer();
     }
+
 
     // --------------------------------------
     //     INITIAL STATE AND SETUP TESTS
@@ -61,7 +77,7 @@ contract VaultTest is Test {
         uint256 newMinimumStake = 0.1 ether;
 
         // Ensure only the owner can call this function
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
         vm.prank(user1);
         vault.setMinimumStake(newMinimumStake);
 
@@ -101,7 +117,7 @@ contract VaultTest is Test {
         // Ensure only the owner can call this function
         vm.expectRevert(
             abi.encodeWithSelector(
-                Ownable.OwnableUnauthorizedAccount.selector, 0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF
+                OwnableUpgradeable.OwnableUnauthorizedAccount.selector, 0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF
             )
         );
         vm.prank(user1);
@@ -114,7 +130,7 @@ contract VaultTest is Test {
 
         // Test: non-owner cannot lock the contract
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
         vault.lockOrUnlockContract(true);
 
         // Test: owner can lock the contract

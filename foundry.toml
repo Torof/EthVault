@@ -4,7 +4,8 @@ out = "out"
 libs = ["lib"]
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
-    "solady/=lib/solady/src/"
+    "solady/=lib/solady/src/",
+    "@openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     ]
     solc = '0.8.26'
     optimizer = true

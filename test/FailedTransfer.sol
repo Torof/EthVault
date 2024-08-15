@@ -14,7 +14,7 @@ contract FailedTransfer {
     event Received(address sender, uint amount);
     event Fallback(address sender, uint amount, bytes data);
 
-    EthVault public vault = EthVault(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f);
+    EthVault public vault = EthVault(0x2e234DAe75C793f67A35089C9d99245E1C58470b);
 
     receive() external payable {
         emit Received(msg.sender, msg.value);
