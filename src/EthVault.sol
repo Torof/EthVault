@@ -48,7 +48,7 @@ contract EthVault is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reentra
     Epoch[] public epochs;
     uint256 public currentEpochId;
     mapping(address => UserStake) public userStakes;
-    uint256 public mininmumStake;
+    uint256 public minimumStake;
     bool public locked;
 
     error WrongPhase(string);
@@ -97,7 +97,7 @@ function initialize(address _fundWallet) public initializer {
     fundWallet = _fundWallet;
     currentEpochStatus = EpochStatus.Open;
     currentEpochId = 1;
-    mininmumStake = 5 ether / 100;
+    minimumStake = 5 ether / 100;
 
     emit EpochOpened(currentEpochId, block.timestamp);
 }
@@ -109,7 +109,7 @@ function initialize(address _fundWallet) public initializer {
 
     function enter() public payable nonReentrant IsLocked {
         if (currentEpochStatus != EpochStatus.Open) revert WrongPhase("ENTER: only allowed during open phase");
-        if (msg.value < mininmumStake) revert InsufficientStake(msg.value, mininmumStake);
+        if (msg.value < minimumStake) revert InsufficientStake(msg.value, minimumStake);
 
         UserStake storage userStake = userStakes[msg.sender];
 
@@ -298,10 +298,10 @@ function initialize(address _fundWallet) public initializer {
         emit FundWalletChanged(previousFundWallet, fundWallet);
     }
 
-    function setMinimumStake(uint256 _mininmumStake) external onlyOwner {
-        uint256 previousMininmumStake = mininmumStake;
-        mininmumStake = _mininmumStake;
-        emit MinimumStakeChanged(previousMininmumStake, mininmumStake);
+    function setMinimumStake(uint256 _minimumStake) external onlyOwner {
+        uint256 previousMinimumStake = minimumStake;
+        minimumStake = _minimumStake;
+        emit MinimumStakeChanged(previousMinimumStake, minimumStake);
     }
 
     function getCurrentEpoch() external view returns (Epoch memory) {

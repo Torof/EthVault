@@ -69,11 +69,11 @@ contract VaultTest is Test {
     }
 
     function testInitialMinimumStake() public view {
-        assertEq(vault.mininmumStake(), 0.05 ether);
+        assertEq(vault.minimumStake(), 0.05 ether);
     }
 
     function testSetMinimumStake() public {
-        uint256 initialMinimumStake = vault.mininmumStake();
+        uint256 initialMinimumStake = vault.minimumStake();
         uint256 newMinimumStake = 0.1 ether;
 
         // Ensure only the owner can call this function
@@ -88,7 +88,7 @@ contract VaultTest is Test {
         vault.setMinimumStake(newMinimumStake);
 
         // Verify the minimum stake has been updated
-        assertEq(vault.mininmumStake(), newMinimumStake);
+        assertEq(vault.minimumStake(), newMinimumStake);
 
         // Test that we can enter with the new minimum stake
         vm.prank(user1);
@@ -1208,7 +1208,7 @@ function testClaimRewardsForEpochs() public {
 
     function testFuzzEnterAndExit(uint256 enterAmount, uint256 exitAmount) public {
         // Preconditions
-        vm.assume(enterAmount > vault.mininmumStake());
+        vm.assume(enterAmount > vault.minimumStake());
         vm.assume(exitAmount > 0 && exitAmount <= enterAmount);
         vm.deal(user1, enterAmount);
 
@@ -1228,8 +1228,8 @@ function testClaimRewardsForEpochs() public {
     }
 
     function testFuzzInvariantTotalValueLocked(uint256 _amount1, uint256 _amount2) public {
-        vm.assume(_amount1 >= vault.mininmumStake() && _amount1 <= 1_000_000 ether);
-        vm.assume(_amount2 >= vault.mininmumStake() && _amount2 <= 1_000_000 ether);
+        vm.assume(_amount1 >= vault.minimumStake() && _amount1 <= 1_000_000 ether);
+        vm.assume(_amount2 >= vault.minimumStake() && _amount2 <= 1_000_000 ether);
 
         uint256 initialTVL = vault.getCurrentEpoch().totalValueLocked;
         address user_1 = vm.addr(723);
@@ -1252,7 +1252,7 @@ function testClaimRewardsForEpochs() public {
         uint256 totalEntered = 0;
 
         for (uint256 i = 0; i < 5; i++) {
-            amounts[i] = bound(amounts[i], vault.mininmumStake(), 1000 ether);
+            amounts[i] = bound(amounts[i], vault.minimumStake(), 1000 ether);
             exitPercentages[i] = uint8(bound(exitPercentages[i], 1, 100));
 
             vm.deal(users[i], amounts[i]);
@@ -1278,7 +1278,7 @@ function testClaimRewardsForEpochs() public {
         uint256 totalStake = 0;
 
         for (uint256 i = 0; i < 3; i++) {
-            stakes[i] = bound(stakes[i], vault.mininmumStake(), 100 ether);
+            stakes[i] = bound(stakes[i], vault.minimumStake(), 100 ether);
             vm.deal(users[i], stakes[i]);
             vm.prank(users[i]);
             vault.enter{value: stakes[i]}();
